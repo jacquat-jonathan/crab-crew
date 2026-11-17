@@ -1,0 +1,5 @@
+{
+  "name": "crab-crew",
+  "owner": { "name": "jacquat-jonathan" },
+  "plugins": [{ "name": "crab-crew", "source": "./" }]
+}

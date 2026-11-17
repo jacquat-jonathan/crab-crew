@@ -1,0 +1,1 @@
+{ "name": "crab-crew", "version": "0.1.0", "description": "A right-side pane showing each subagent as a pixel-crab card; click one to open its session.", "license": "MIT", "author": { "name": "jacquat-jonathan" }, "types": "./types/index.d.ts" }
