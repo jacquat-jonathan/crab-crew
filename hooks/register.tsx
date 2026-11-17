@@ -9,8 +9,13 @@ const TITLE = 'Crab Crew'
 // Bump the tag when CrabAgent's fields change: it declines what an earlier
 // version stored, which outlives a reload.
 const agents = atom({ plugin: 'crab-crew', key: 'agents' } as const, [], {
-  shape: 'agents-1',
+  shape: 'agents-2',
 })
+// The agent whose conversation the pane shows inline, when the main view
+// can't switch to it (the desktop app hosts the session without one).
+const opened = atom({ plugin: 'crab-crew', key: 'opened' } as const, null)
+// Bumped while the opened agent runs, so its conversation redraws.
+const tick = atom({ plugin: 'crab-crew', key: 'tick' } as const, 0)
 
 // ---------- the crab generator: one id, always the same crab ----------
 
@@ -136,6 +141,25 @@ const sync = async ($: EngineInterface): Promise<void> => {
 
     return isChanged ? next.slice(-100) : list
   })
+  const shown = await read($, opened)
+  if (shown !== null) {
+    const info = listed.find(one => one.id === shown)
+    if (info && isLive(info.status)) await update($, tick, n => n + 1)
+  }
+}
+
+const short = (text: string, length: number): string => {
+  const flat = text.replace(/\s+/g, ' ').trim()
+
+  return flat.length > length ? `${flat.slice(0, length - 1)}…` : flat
+}
+
+const toolLabel = (input: Record<string, unknown>): string => {
+  for (const value of Object.values(input)) {
+    if (typeof value === 'string' && value.trim() !== '') return short(value, 60)
+  }
+
+  return ''
 }
 
 // ---------- the hooks ----------
@@ -174,6 +198,7 @@ export const register: Register = on => {
         description: e.description,
         type: e.subagentType,
         prompt: e.prompt,
+        model: spawned.model,
         status: 'running',
         startedAt: now,
       }
@@ -181,7 +206,9 @@ export const register: Register = on => {
         const known = list.find(one => one.id === id)
         if (known) {
           return list.map(one =>
-            one.id === id ? { ...one, prompt: one.prompt || e.prompt, status: 'running' as const } : one,
+            one.id === id
+              ? { ...one, prompt: one.prompt || e.prompt, model: spawned.model, status: 'running' as const }
+              : one,
           )
         }
 
@@ -202,12 +229,119 @@ export const register: Register = on => {
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const list = await read($, agents)
+    const shownId = await read($, opened)
     const viewed = e.props.view.agentId
-    const sorted = [...list].sort((a, b) => b.startedAt - a.startedAt)
-    const live = list.filter(agent => isLive(agent.status)).length
-    // Card inner width: frame 2, padding 2, crab 11, gap 1.
     const textWidth = Math.max(12, e.props.bodyColumns - 16)
-    const previewLength = textWidth * 2 - 1
+
+    const crabArt = (crab: Crab) => (
+      <Box flexDirection="column" width={11} flexShrink={0}>
+        <Text mono>
+          {' '}
+          <Text color={crab.shell}>{crab.claw}</Text>
+          <Text color={crab.hat.color || undefined}>{crab.hat.art}</Text>
+          <Text color={crab.shell}>{crab.claw}</Text>{' '}
+        </Text>
+        <Text mono color={crab.shell}>
+          {' ▀▄█'}
+          <Text color="white" backgroundColor={crab.shell} bold>
+            {crab.eye}
+          </Text>
+          {'█'}
+          <Text color="white" backgroundColor={crab.shell} bold>
+            {crab.eye}
+          </Text>
+          {'█▄▀ '}
+        </Text>
+        <Text mono color={crab.shell}>
+          {'  ▐█████▌  '}
+        </Text>
+        <Text mono color={crab.shell} dimColor>
+          {`  ${crab.legs}  `}
+        </Text>
+      </Box>
+    )
+
+    const headline = (agent: CrabAgent, crab: Crab) => {
+      const badge = BADGE[agent.status] ?? BADGE.running
+
+      return (
+        <Box flexDirection="column" flexGrow={1} flexShrink={1}>
+          <Text bold color={crab.shell}>
+            {agent.name ?? crab.nickname}
+          </Text>
+          <Text>
+            <Text color={badge.color}>{badge.label}</Text>
+            <Text dimColor>{` · ${agent.type}`}</Text>
+          </Text>
+          <Text bold wrap="truncate-end">
+            {agent.description || 'Untitled task'}
+          </Text>
+          <Text dimColor wrap="truncate-end">
+            {`◆ ${agent.model ?? 'model unknown'}`}
+          </Text>
+        </Box>
+      )
+    }
+
+    // ----- one agent's conversation, drawn inside the pane -----
+    const agent = shownId === null ? undefined : list.find(one => one.id === shownId)
+    if (agent !== undefined) {
+      await read($, tick)
+      const crab = crabFor(agent.id)
+      const found = await $.session.messages({ agentId: agent.id })
+      const messages = 'deny' in found ? [] : found.slice(-40)
+      const room = Math.max(40, (e.props.bodyColumns - 4) * 6)
+
+      return (
+        <Box flexDirection="column" gap={1}>
+          <Box flexDirection="row">
+            <Button key="back" variant="primary" onPress={() => void update($, opened, () => null)}>
+              ← All crabs
+            </Button>
+          </Box>
+          <Box flexDirection="row" gap={1} paddingX={1} borderStyle="double" borderColor={crab.shell}>
+            {crabArt(crab)}
+            {headline(agent, crab)}
+          </Box>
+          {'deny' in found && (
+            <Text dimColor wrap="wrap">
+              {`Can't read this crab's conversation: ${found.deny}`}
+            </Text>
+          )}
+          {messages.length === 0 && !('deny' in found) && <Text dimColor>No messages yet.</Text>}
+          {messages.map((message, index) => (
+            <Box key={`m-${index}`} flexDirection="column">
+              {message.text.trim() !== '' && (
+                <Box flexDirection="column">
+                  <Text bold color={message.role === 'assistant' ? crab.shell : 'gray'}>
+                    {message.role === 'assistant' ? `🦀 ${agent.name ?? crab.nickname}` : index === 0 ? '▸ Task' : '▸ Input'}
+                  </Text>
+                  <Text wrap="wrap">{short(message.text, room)}</Text>
+                </Box>
+              )}
+              {message.toolUses.map(use => (
+                <Box key={use.tool_use_id} flexDirection="column">
+                  <Text wrap="truncate-end">
+                    <Text color={use.isError ? 'red' : 'yellow'}>{'⚙ '}</Text>
+                    <Text bold>{use.tool}</Text>
+                    <Text dimColor>{` ${toolLabel(use.input)}`}</Text>
+                  </Text>
+                  {use.text !== undefined && use.text.trim() !== '' && (
+                    <Text dimColor wrap="wrap">
+                      {`  ⎿ ${short(use.text, Math.max(40, textWidth * 2))}`}
+                    </Text>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          ))}
+        </Box>
+      )
+    }
+
+    // ----- the crew: one card per agent -----
+    const sorted = [...list].sort((a, b) => b.startedAt - a.startedAt)
+    const live = list.filter(one => isLive(one.status)).length
 
     return (
       <Box flexDirection="column" gap={1}>
@@ -218,7 +352,7 @@ export const register: Register = on => {
               : `${list.length} crab${list.length === 1 ? '' : 's'} · ${live} at work`}
           </Text>
           {viewed !== undefined && (
-            <Button key="back" variant="primary" onPress={() => void $.ui.view({})}>
+            <Button key="main" variant="primary" onPress={() => void $.ui.view({})}>
               ← Main
             </Button>
           )}
@@ -228,74 +362,39 @@ export const register: Register = on => {
             When Claude starts a subagent, its crab shows up here. Click one to open its session.
           </Text>
         )}
-        {sorted.map(agent => {
-          const crab = crabFor(agent.id)
-          const badge = BADGE[agent.status] ?? BADGE.running
-          const isViewed = agent.id === viewed
-          const preview = agent.prompt.replace(/\s+/g, ' ').trim()
-          const shown =
-            preview.length > previewLength ? `${preview.slice(0, previewLength - 1)}…` : preview
-          const title = agent.name ?? crab.nickname
+        {sorted.map(one => {
+          const crab = crabFor(one.id)
+          const isViewed = one.id === viewed
+          const open = async () => {
+            if (isViewed) {
+              await $.ui.view({})
+              return
+            }
+            // Switch the main view where the surface has one; otherwise show
+            // the conversation right here in the pane.
+            const shown = await $.ui.view({ agentId: one.id })
+            if (shown.deny !== undefined) {
+              $.ui.log(`crab-crew: main view refused (${shown.deny}); opening inline`, { to: 'debug' })
+              await update($, opened, () => one.id)
+            }
+          }
 
           return (
             <Box
-              key={`card-${agent.id}`}
-              flexDirection="row"
-              gap={1}
+              key={`card-${one.id}`}
+              flexDirection="column"
               paddingX={1}
               borderStyle={isViewed ? 'double' : 'round'}
               borderColor={isViewed ? crab.shell : 'gray'}
               hover={{ borderColor: crab.shell }}
             >
-              <Box flexDirection="column" width={11} flexShrink={0}>
-                <Text mono>
-                  {' '}
-                  <Text color={crab.shell}>{crab.claw}</Text>
-                  <Text color={crab.hat.color || undefined}>{crab.hat.art}</Text>
-                  <Text color={crab.shell}>{crab.claw}</Text>{' '}
-                </Text>
-                <Text mono color={crab.shell}>
-                  {' ▀▄█'}
-                  <Text color="white" backgroundColor={crab.shell} bold>
-                    {crab.eye}
-                  </Text>
-                  {'█'}
-                  <Text color="white" backgroundColor={crab.shell} bold>
-                    {crab.eye}
-                  </Text>
-                  {'█▄▀ '}
-                </Text>
-                <Text mono color={crab.shell}>
-                  {'  ▐█████▌  '}
-                </Text>
-                <Text mono color={crab.shell} dimColor>
-                  {`  ${crab.legs}  `}
-                </Text>
+              <Box flexDirection="row" gap={1}>
+                {crabArt(crab)}
+                {headline(one, crab)}
               </Box>
-              <Box flexDirection="column" flexGrow={1} flexShrink={1}>
-                <Button
-                  key={`open-${agent.id}`}
-                  plain
-                  onPress={() => void $.ui.view(isViewed ? {} : { agentId: agent.id })}
-                >
-                  <Text bold color={crab.shell}>
-                    {title}
-                  </Text>
-                  <Text dimColor>{isViewed ? '  ◂ back' : '  ▸ open'}</Text>
-                </Button>
-                <Text>
-                  <Text color={badge.color}>{badge.label}</Text>
-                  <Text dimColor>{` · ${agent.type}`}</Text>
-                </Text>
-                <Text bold wrap="truncate-end">
-                  {agent.description || 'Untitled task'}
-                </Text>
-                {shown !== '' && (
-                  <Text dimColor wrap="wrap">
-                    {shown}
-                  </Text>
-                )}
-              </Box>
+              <Button key={`open-${one.id}`} plain dimColor onPress={() => void open()}>
+                {isViewed ? '◂ back to main' : '▸ open conversation'}
+              </Button>
             </Box>
           )
         })}

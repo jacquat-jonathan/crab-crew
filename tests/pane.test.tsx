@@ -22,11 +22,21 @@ test('an empty crew says so', async $ => {
   }
 })
 
-test('a spawned subagent gets a card with its goal and an open button', async ($, on) => {
+test('a card shows the model, and opens the conversation in the pane when the main view refuses', async ($, on) => {
   on('agent.list', () => ({ value: [] }))
   on('clock.now', () => ({ value: 1000 }))
-  on('agent.spawn', () => ({ model: 'haiku', agentId: 'a1' }))
-  on('ui.view', () => ({ value: {} }))
+  on('agent.spawn', () => ({ model: 'claude-haiku-5-5', agentId: 'a1' }))
+  on('ui.view', () => ({ value: { deny: 'the session draws no main view' } }))
+  on('session.messages', () => ({
+    value: [
+      { role: 'user', text: 'Find every place the login token is refreshed.', toolUses: [] },
+      {
+        role: 'assistant',
+        text: 'Found it in two files.',
+        toolUses: [{ tool_use_id: 'u1', tool: 'Grep', input: { pattern: 'refreshToken' }, text: '2 matches' }],
+      },
+    ],
+  }))
 
   await $.agent.spawn({
     prompt: 'Find every place the login token is refreshed and list the files.',
@@ -43,9 +53,13 @@ test('a spawned subagent gets a card with its goal and an open button', async ($
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /Search auth code/ }))?.text).toBe('Search auth code')
-    expect((await ui.find({ type: 'Text', text: /login token/ }))?.text).toMatch(/^Find every place/)
-    expect((await ui.find({ type: 'Text', text: /running/ }))).toBeTruthy()
+    expect((await ui.find({ type: 'Text', text: /claude-haiku-5-5/ }))?.text).toBe('◆ claude-haiku-5-5')
+    expect(await ui.find({ type: 'Text', text: /login token is refreshed and list/ })).toBeFalsy()
     await ui.press({ key: 'open-a1' })
+    expect((await ui.find({ type: 'Text', text: /Found it in two files/ }))?.text).toBe('Found it in two files.')
+    expect(await ui.find({ type: 'Text', text: /2 matches/ })).toBeTruthy()
+    await ui.press({ key: 'back' })
+    expect(await ui.find({ type: 'Text', text: /Found it in two files/ })).toBeFalsy()
     await ui.unmount()
   }
 })

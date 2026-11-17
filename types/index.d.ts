@@ -13,12 +13,17 @@ export type CrabAgent = {
   description: string
   type: string
   prompt: string
+  model?: string
   status: CrabStatus
   startedAt: number
 }
 
 declare module 'claude-code' {
   interface PluginState {
-    'crab-crew': { agents: Shaped<CrabAgent[]> }
+    'crab-crew': {
+      agents: Shaped<CrabAgent[]>
+      opened: string | null
+      tick: number
+    }
   }
 }
