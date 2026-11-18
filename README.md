@@ -34,7 +34,11 @@ In the Claude desktop app: click **+** next to the prompt box, then **Plugins** 
 
 - The model is only recorded for subagents started after the mod loads. Older ones still get a card, marked "model unknown".
 - Statuses are checked every 2 seconds and whenever a subagent finishes a turn.
-- The pane needs a surface that draws plugin panes. A cloud session viewed from the desktop app attaches none, so there the pane can't be shown and `/crabs` says so. The crew agents still work.
+- The pane needs a surface that draws plugin panes. A cloud session viewed from the desktop app attaches none, so there the pane can't be shown and `/crabs` says so. For cloud sessions use the Crab Crew page instead (below). The crew agents still work.
+
+## Crab Crew page (cloud sessions)
+
+`app/index.html` is a claude.ai artifact that shows the same crabs for your cloud sessions, wherever you view them. It reads your sessions through the Claude Code Remote connector (`list_sessions`, `list_events`), follows your most recently active session by default, and refreshes every 4 seconds. Open it beside the chat in the Claude app, or pin it to the sidebar. Republish it with Claude's Artifact tool, declaring the `mcp` capability for those two tools.
 
 ## Crew agents (second plugin)
 

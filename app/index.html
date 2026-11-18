@@ -1,0 +1,311 @@
+<title>Crab Crew</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: a tide-pool board. One header strip (session + live state), then a grid of crab cards, newest first. */
+:root {
+  --bg: #eef3f2;          /* wet sand, cool */
+  --panel: #ffffff;
+  --fg: #14262b;
+  --muted: #5b7076;
+  --line: #d3dfdd;
+  --accent: #0f7c83;      /* tide-pool teal */
+  --run: #1f9d55;
+  --wait: #b7791f;
+  --fail: #c53030;
+  --done: #2b6cb0;
+  --crab-ink: #ffffff;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c171b; --panel: #12222a; --fg: #e3eef0; --muted: #8aa3aa; --line: #213740;
+  --accent: #4fc3c9; --run: #48bb78; --wait: #ecc94b; --fail: #fc8181; --done: #63b3ed; --crab-ink: #0c171b;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0c171b; --panel: #12222a; --fg: #e3eef0; --muted: #8aa3aa; --line: #213740;
+  --accent: #4fc3c9; --run: #48bb78; --wait: #ecc94b; --fail: #fc8181; --done: #63b3ed; --crab-ink: #0c171b;
+  color-scheme: dark }
+
+* { box-sizing: border-box }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 32px;
+}
+main { max-width: 980px; margin: 0 auto; display: grid; gap: 16px }
+
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px }
+h1 { font-family: var(--font-display); font-size: 22px; margin: 0; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px }
+h1 .mini { font-family: var(--font-mono); font-size: 13px; color: #E8553E; line-height: 1; white-space: pre }
+.spacer { flex: 1 }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0 }
+select, button {
+  font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 10px; min-height: 34px;
+}
+select { max-width: min(360px, 100%); min-width: 0 }
+button { cursor: pointer }
+button:hover, select:hover { border-color: var(--accent) }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.live { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted) }
+.dot.on { background: var(--run); box-shadow: 0 0 0 0 var(--run); animation: pulse 2s infinite }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--run) 60%, transparent) } 70% { box-shadow: 0 0 0 7px transparent } 100% { box-shadow: 0 0 0 0 transparent } }
+@media (prefers-reduced-motion: reduce) { .dot.on { animation: none } }
+
+.summary { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 13px }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 2px 10px; font-variant-numeric: tabular-nums }
+.chip b { color: var(--fg); font-weight: 600 }
+
+.notice { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--wait); border-radius: 8px; padding: 12px 14px }
+.notice.err { border-left-color: var(--fail) }
+.notice p { margin: 4px 0 0; color: var(--muted) }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 12px }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; grid-template-columns: auto 1fr; gap: 12px; min-width: 0 }
+.card.live { border-color: color-mix(in srgb, var(--run) 45%, var(--line)) }
+.crab { font-family: var(--font-mono); font-size: 13px; line-height: 1.05; white-space: pre; user-select: none }
+.crab .eye { color: var(--crab-ink); font-weight: 700 }
+.crab .legs { opacity: .6 }
+.crab.live .legs { animation: scuttle .5s steps(2) infinite }
+@keyframes scuttle { 50% { transform: translateX(1px) } }
+@media (prefers-reduced-motion: reduce) { .crab.live .legs { animation: none } }
+.info { min-width: 0; display: grid; gap: 4px; align-content: start }
+.name { font-family: var(--font-display); font-weight: 700; font-size: 15px; overflow-wrap: anywhere }
+.badge { font-size: 12px; font-weight: 600; display: inline-flex; gap: 4px; align-items: center }
+.s-running { color: var(--run) } .s-waiting { color: var(--wait) } .s-done { color: var(--done) } .s-failed { color: var(--fail) } .s-stopped { color: var(--muted) }
+.goal { overflow-wrap: anywhere }
+.meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; font-variant-numeric: tabular-nums }
+
+.empty { text-align: center; padding: 36px 16px; color: var(--muted); background: var(--panel); border: 1px dashed var(--line); border-radius: 12px }
+.empty .crab { display: inline-block; margin-bottom: 10px; color: var(--accent); opacity: .7 }
+footer { color: var(--muted); font-size: 12px }
+</style>
+
+<main>
+  <header>
+    <h1><span class="mini" aria-hidden="true">▙▟ ▙▟</span>Crab Crew</h1>
+    <span class="live"><span class="dot" id="dot"></span><span id="liveText">Connecting…</span></span>
+    <span class="spacer"></span>
+    <div class="controls">
+      <label class="live" for="follow"><input type="checkbox" id="follow" checked> Follow my latest session</label>
+      <select id="session" aria-label="Session to watch"><option>Loading sessions…</option></select>
+    </div>
+  </header>
+
+  <div id="notice" hidden></div>
+  <div class="summary" id="summary" hidden></div>
+  <section class="grid" id="grid" aria-live="polite"></section>
+  <div class="empty" id="empty" hidden>
+    <div class="crab" aria-hidden="true"> ▙▟     ▙▟
+ ▀▄█o█o█▄▀
+  ▐█████▌
+  ╱╱   ╲╲</div>
+    <div id="emptyText">No subagents in this session yet. They appear here as soon as Claude starts one.</div>
+  </div>
+  <footer id="footer">Reads your Claude Code cloud sessions through the Claude Code Remote connector. Same crab for the same agent as the Crab Crew pane.</footer>
+</main>
+
+<script>
+(() => {
+  const SERVER = 'Claude Code Remote';
+  const POLL_MS = 4000, SESSIONS_MS = 20000;
+  const $ = id => document.getElementById(id);
+
+  // ---------- the crab generator (same as the Crab Crew pane: one id, always the same crab) ----------
+  const hash = (text, salt) => { let h = 0x811c9dc5 ^ salt; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) } return h >>> 0 };
+  const pick = (list, id, salt) => list[hash(id, salt) % list.length];
+  const SHELLS = ['#E8553E','#F28C28','#E5B820','#4CAF50','#2BB3C0','#3D7DDB','#8E5BD6','#E05EA6','#B5713A'];
+  const HATS = [{art:'     ',color:''},{art:' ▄█▄ ',color:'#3a3a3a'},{art:' ▴▴▴ ',color:'#F5C518'},{art:' ▄▀▄ ',color:'#D33F49'},{art:'  ¡  ',color:'#9AA0A6'},{art:' ▁▂▁ ',color:'#5B8DEF'}];
+  const CLAWS = ['▙▟','▛▜','▚▞','▟▙'], EYES = ['o','•','°','^','@','*'], LEGS = ['╱╱   ╲╲','▞▞   ▚▚','┘┘   └└','╯╯   ╰╰'];
+  const FIRST = ['Pinchy','Clawdia','Sheldon','Snappy','Crabigail','Scuttle','Hermie','Coral','Barnacle','Sandy','Tidepool','Bubbles','Krabby','Shelly'];
+  const LAST = ['',' the Bold',' McClaw',' Jr.',' of the Reef',' Esq.',' Sidestep'];
+  const crabFor = id => ({ shell: pick(SHELLS,id,1), hat: pick(HATS,id,2), claw: pick(CLAWS,id,3), eye: pick(EYES,id,4), legs: pick(LEGS,id,5), nickname: pick(FIRST,id,6) + pick(LAST,id,7) });
+
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n };
+  const span = (text, color, cls) => { const s = el('span', cls, text); if (color) s.style.color = color; return s };
+  function crabArt(crab, live) {
+    const pre = el('div', 'crab' + (live ? ' live' : '')); pre.setAttribute('aria-hidden', 'true');
+    const l1 = el('div'); l1.append(' ', span(crab.claw, crab.shell), span(crab.hat.art, crab.hat.color || null), span(crab.claw, crab.shell), ' ');
+    const eye = () => { const s = span(crab.eye, null, 'eye'); s.style.background = crab.shell; return s };
+    const l2 = el('div'); l2.style.color = crab.shell; l2.append(' ▀▄█', eye(), '█', eye(), '█▄▀ ');
+    const l3 = el('div', null, '  ▐█████▌  '); l3.style.color = crab.shell;
+    const l4 = el('div', 'legs', `  ${crab.legs}  `); l4.style.color = crab.shell;
+    pre.append(l1, l2, l3, l4); return pre;
+  }
+
+  // ---------- state ----------
+  let mcp = null, lastSessions = 0, sessions = [], current = null, cursor = null, agents = new Map(), pollTimer = null, busy = false, lastOk = 0;
+  const follow = $('follow');
+  try { follow.checked = localStorage.getItem('crabs.follow') !== '0' } catch {}
+
+  const payloadOf = res => {
+    let p = res && 'payload' in res ? res.payload : res;
+    if (typeof p === 'string') { const a = p.indexOf('{'), b = p.lastIndexOf('}'); try { p = JSON.parse(p.slice(a, b + 1)) } catch { p = null } }
+    return p && p.ccr ? p.ccr : p;
+  };
+  const call = async (tool, input) => payloadOf(await mcp.callTool(SERVER, tool, input, { cache: false }));
+
+  // ---------- reading subagents out of the session's events ----------
+  const messageOf = e => { for (const k of ['assistant', 'user']) { const v = e[k]; if (v) return v.message || (v.internal_anthropic_catchall && v.internal_anthropic_catchall.message) } return null };
+  const textOf = c => typeof c === 'string' ? c : Array.isArray(c) ? c.map(b => b && (b.text || (typeof b.content === 'string' ? b.content : ''))).join('\n') : '';
+
+  function ingest(events) {
+    for (const e of events || []) {
+      const m = messageOf(e); if (!m) continue;
+      const at = Date.parse(e.created_at) || Date.now();
+      const blocks = Array.isArray(m.content) ? m.content : [];
+      for (const b of blocks) {
+        if (b.type === 'tool_use' && (b.name === 'Agent' || b.name === 'Task')) {
+          const i = b.input || {};
+          if (!agents.has(b.id)) agents.set(b.id, { useId: b.id, agentId: null, goal: i.description || 'Subagent', type: i.subagent_type || 'general-purpose', model: i.model || null, background: !!i.run_in_background, status: 'running', startedAt: at, endedAt: null });
+        } else if (b.type === 'tool_result' && agents.has(b.tool_use_id)) {
+          const a = agents.get(b.tool_use_id), t = textOf(b.content);
+          const id = /agentId:\s*([\w-]+)/.exec(t) || /from "([\w-]+)"/.exec(t); if (id) a.agentId = id[1];
+          if (b.is_error) { a.status = 'failed'; a.endedAt = at }
+          else if (/running in the background|launched in the background|Async agent launched/i.test(t)) { a.status = 'running' }
+          else { a.status = 'done'; a.endedAt = at }
+        }
+        // Background agents report back later as a task notification naming the tool use.
+        const t = b.type === 'text' ? b.text : b.type === 'tool_result' ? textOf(b.content) : '';
+        if (t && t.includes('<task-notification>')) {
+          const re = /<tool-use-id>(toolu_\w+)<\/tool-use-id>[\s\S]*?<status>(\w+)<\/status>/g; let r;
+          while ((r = re.exec(t))) { const a = agents.get(r[1]); if (a) { a.status = r[2] === 'completed' ? 'done' : r[2] === 'failed' ? 'failed' : r[2] === 'killed' || r[2] === 'stopped' ? 'stopped' : a.status; if (a.status !== 'running') a.endedAt = at } }
+        }
+      }
+      if (typeof m.content === 'string' && m.content.includes('<task-notification>')) ingest([{ user: { message: { content: [{ type: 'text', text: m.content }] } }, created_at: e.created_at }]);
+    }
+  }
+
+  // ---------- rendering ----------
+  const BADGE = { running: '● running', waiting: '◐ waiting', done: '✓ done', failed: '✗ failed', stopped: '■ stopped' };
+  const ago = ms => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s/60)}m ${s%60}s` : `${Math.floor(s/3600)}h ${Math.floor(s/60)%60}m` };
+  const clock = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  function render() {
+    const list = [...agents.values()].sort((a, b) => (b.status === 'running') - (a.status === 'running') || b.startedAt - a.startedAt);
+    const grid = $('grid'); grid.replaceChildren();
+    for (const a of list) {
+      const crab = crabFor(a.agentId || a.useId), live = a.status === 'running';
+      const card = el('article', 'card' + (live ? ' live' : ''));
+      const info = el('div', 'info');
+      const name = el('div', 'name', crab.nickname); name.style.color = crab.shell;
+      const badge = el('div', 'badge s-' + a.status, BADGE[a.status] || a.status);
+      const goal = el('div', 'goal', a.goal);
+      const meta = el('div', 'meta');
+      meta.append(el('span', null, a.type));
+      if (a.model) meta.append(el('span', null, '◆ ' + a.model));
+      meta.append(el('span', null, (live ? 'for ' + ago(Date.now() - a.startedAt) : 'took ' + ago((a.endedAt || a.startedAt) - a.startedAt)) + ' · ' + clock(a.startedAt)));
+      if (a.background) meta.append(el('span', null, 'background'));
+      info.append(name, badge, goal, meta);
+      card.append(crabArt(crab, live), info); grid.append(card);
+    }
+    $('empty').hidden = list.length > 0 || !current;
+    const counts = { running: 0, done: 0, failed: 0 }; for (const a of list) counts[a.status] = (counts[a.status] || 0) + 1;
+    const sum = $('summary'); sum.replaceChildren();
+    if (list.length) {
+      for (const [k, label] of [['running','running'],['done','done'],['failed','failed']]) if (counts[k]) { const c = el('span', 'chip'); c.append(el('b', null, String(counts[k])), ' ' + label); sum.append(c) }
+      const c = el('span', 'chip'); c.append(el('b', null, String(list.length)), ' crabs in total'); sum.append(c);
+    }
+    sum.hidden = !list.length;
+  }
+
+  function setLive(on, text) { $('dot').classList.toggle('on', on); $('liveText').textContent = text }
+  function notice(kind, title, body) {
+    const n = $('notice'); if (!title) { n.hidden = true; return }
+    n.className = 'notice' + (kind === 'err' ? ' err' : ''); n.replaceChildren(el('strong', null, title));
+    if (body) n.append(el('p', null, body)); n.hidden = false;
+  }
+  function explain(err) {
+    const code = err && err.code;
+    if (code === 'needs_reauth') return ['Reconnect Claude Code Remote', 'Its sign-in lapsed. Reconnect it in claude.ai Settings → Connectors, then reopen this page.'];
+    if (code === 'server_not_connected' || code === 'selection_required') return ['Claude Code Remote isn\'t available', 'Add or choose the Claude Code Remote connector in claude.ai Settings → Connectors, then reopen this page.'];
+    if (code === 'not_in_manifest' || code === 'approval_required') return ['Crab Crew needs your OK', 'Allow the Claude Code Remote connector for this page from its Permissions menu, then reopen it.'];
+    if (code === 'blocked_by_policy') return ['Blocked by your organization', 'Your organization doesn\'t allow this page to read your sessions.'];
+    if (code === 'server_unavailable' || code === 'rate_limited') return ['Sessions are briefly unreachable', 'Trying again in a few seconds.'];
+    return ['Couldn\'t read your sessions', (err && err.message) || 'Unknown error.'];
+  }
+
+  // ---------- sessions ----------
+  function fillPicker() {
+    const sel = $('session'); sel.replaceChildren();
+    for (const s of sessions) {
+      const o = el('option', null, `${s.title || 'Untitled session'} · ${clock(Date.parse(s.updated_at))}${/WORKING/.test(s.status_bucket || '') ? ' · working' : ''}`);
+      o.value = s.id; sel.append(o);
+    }
+    if (current) sel.value = current;
+  }
+  async function loadSessions() {
+    const p = await call('list_sessions', { mine: true, limit: 15 });
+    lastSessions = Date.now();
+    sessions = (p && p.data || []).slice().sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+    fillPicker();
+    if (follow.checked && sessions[0] && sessions[0].id !== current) await watch(sessions[0].id);
+  }
+
+  // ---------- one session's event stream ----------
+  async function watch(id) {
+    current = id; cursor = null; agents = new Map(); render(); $('session').value = id;
+    setLive(false, 'Reading session…');
+    // The newest page first, then a few pages back so earlier crabs show too.
+    let page = await call('list_events', { session_id: id, kinds: ['assistant', 'user'], limit: 100 });
+    if (current !== id) return;
+    const pages = [page]; cursor = page && page.last_id;
+    for (let i = 0; i < 4 && page && page.has_more && page.first_id; i++) {
+      page = await call('list_events', { session_id: id, kinds: ['assistant', 'user'], limit: 100, before_id: page.first_id });
+      if (current !== id) return; pages.unshift(page);
+    }
+    for (const p of pages) ingest(p && p.data);
+    render();
+  }
+  async function poll() {
+    if (busy || !current) return; busy = true;
+    try {
+      const id = current;
+      for (let i = 0; i < 5; i++) {
+        const p = await call('list_events', cursor ? { session_id: id, kinds: ['assistant', 'user'], limit: 100, after_id: cursor } : { session_id: id, kinds: ['assistant', 'user'], limit: 100 });
+        if (current !== id) break;
+        if (p && p.data && p.data.length) { ingest(p.data); cursor = p.last_id || cursor }
+        if (!(p && p.has_more && cursor)) break;
+      }
+      render(); lastOk = Date.now(); notice(); setLive(true, 'Listening · ' + clock(lastOk));
+    } catch (err) {
+      const [t, b] = explain(err); notice('err', t, b); setLive(false, 'Paused');
+      if (!(err && err.retryable)) stop();
+    } finally { busy = false }
+  }
+  function stop() { clearInterval(pollTimer); pollTimer = null }
+  function start() { stop(); pollTimer = setInterval(() => { if (!document.hidden) { poll(); if (follow.checked && Date.now() - lastSessions > SESSIONS_MS) loadSessions().catch(() => {}) } }, POLL_MS) }
+
+  $('session').addEventListener('change', async e => {
+    follow.checked = false; try { localStorage.setItem('crabs.follow', '0') } catch {}
+    try { await watch(e.target.value); await poll() } catch (err) { const [t, b] = explain(err); notice('err', t, b) }
+  });
+  follow.addEventListener('change', async () => {
+    try { localStorage.setItem('crabs.follow', follow.checked ? '1' : '0') } catch {}
+    if (follow.checked) { try { await loadSessions(); await poll() } catch (err) { const [t, b] = explain(err); notice('err', t, b) } }
+  });
+  setInterval(() => { if (!document.hidden && [...agents.values()].some(a => a.status === 'running')) render() }, 1000);
+
+  // ---------- boot ----------
+  render();
+  (async () => {
+    mcp = window.claude && window.claude.use ? await window.claude.use('mcp') : null;
+    if (!mcp) { setLive(false, 'Offline'); notice('err', 'Open this page in Claude', 'Crab Crew reads your sessions through your Claude Code Remote connector, which only works inside claude.ai or the Claude app.'); return }
+    try {
+      const listed = await mcp.listTools(SERVER).catch(() => null);
+      const tools = listed && listed.servers && listed.servers[0] ? listed.servers[0].tools.map(t => t.name) : null;
+      if (tools && tools.length && !(tools.includes('list_sessions') && tools.includes('list_events'))) {
+        notice('err', 'Your connector can\'t list sessions', 'Your Claude Code Remote connector doesn\'t offer list_sessions and list_events to pages, so Crab Crew can\'t watch your sessions.'); setLive(false, 'Unavailable'); return;
+      }
+      await loadSessions();
+      if (!current && sessions[0]) await watch(sessions[0].id);
+      if (!sessions.length) { $('emptyText').textContent = 'No Claude Code sessions found on your account yet.'; $('empty').hidden = false }
+      await poll(); start();
+    } catch (err) { const [t, b] = explain(err); notice('err', t, b); setLive(false, 'Paused') }
+  })();
+})();
+</script>
