@@ -48,7 +48,13 @@ This marketplace also ships `crew`, a set of subagents that work in any reposito
 
 The agents hold no repo-specific commands. They read the target repo's `CLAUDE.md` (and the files it points to) for its layout, test commands and, in a cloud session (`CLAUDE_CODE_REMOTE=true`), its "Claude Code cloud sessions" section: setup such as `PATH` exports, steps to replace, and tests that fail only because of the environment. To teach them a new repo, document those in its `CLAUDE.md`.
 
-`crew:reviewer` may run Bash only for single read-only git commands (`diff`, `log`, `show`, `status`, `rev-parse`, `merge-base`, `ls-files`, `blame`). The plugin's `PreToolUse` hook enforces this and blocks options that run programs or write files (`-c`, `--output`, `--ext-diff`, `--textconv`, `--git-dir`, ...). The hook needs `node` on `PATH`. Without it, the reviewer's limit is not enforced. Other agents and the main conversation are not affected. Tests: `node --test plugins/crew/hooks/reviewer-bash.test.mjs`.
+`crew:reviewer` may run Bash only for single read-only git commands (`diff`, `log`, `show`, `status`, `rev-parse`, `merge-base`, `ls-files`, `blame`). The plugin's `PreToolUse` hook enforces this and blocks options that run programs or write files (`-c`, `--output`, `--ext-diff`, `--textconv`, `--git-dir`, ...). Other agents and the main conversation are not affected. Tests: `node --test plugins/crew/hooks/reviewer-bash.test.mjs`.
+
+The hook is a guard rail, not a sandbox. It blocks the call when its input can't be read or it errors, but it does nothing when:
+
+- `node` is not on `PATH` (the hook can't start, and only exit code 2 blocks a call);
+- Claude Code sends no `agent_type`, since the reviewer then can't be told apart from the main conversation;
+- the reviewed repo's own git config or attributes run programs (`diff.external`, textconv drivers, `core.fsmonitor`). Point the reviewer only at repos you trust.
 
 Install it at user scope so every session gets it:
 
