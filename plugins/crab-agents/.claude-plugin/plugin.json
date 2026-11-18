@@ -1,0 +1,1 @@
+{ "name": "crab-agents", "version": "0.1.0", "description": "An agent team: search, grep, tests and a reviewer gate.", "license": "MIT", "author": { "name": "jacquat-jonathan" } }

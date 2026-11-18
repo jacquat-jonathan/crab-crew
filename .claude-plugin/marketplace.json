@@ -1,5 +1,21 @@
 {
   "name": "crab-crew",
-  "owner": { "name": "jacquat-jonathan" },
-  "plugins": [{ "name": "crab-crew", "source": "./" }]
+  "owner": {
+    "name": "jacquat-jonathan"
+  },
+  "metadata": {
+    "description": "Crab Crew: a pixel-crab pane for subagents, and the crab-agents team."
+  },
+  "plugins": [
+    {
+      "name": "crab-crew",
+      "source": "./plugins/crab-crew",
+      "description": "A right-side pane showing each subagent as a pixel-crab card; click one to open its session."
+    },
+    {
+      "name": "crab-agents",
+      "source": "./plugins/crab-agents",
+      "description": "An agent team: search, grep, tests and a reviewer gate."
+    }
+  ]
 }
