@@ -1,0 +1,7 @@
+{
+  "name": "crew",
+  "version": "0.1.0",
+  "description": "Repo-agnostic subagents: search and grep (Haiku), tests (Haiku) and a review gate (Opus) that reads the real diff.",
+  "license": "MIT",
+  "author": { "name": "jacquat-jonathan" }
+}

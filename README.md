@@ -35,6 +35,27 @@ In the Claude desktop app: click **+** next to the prompt box, then **Plugins** 
 - The model is only recorded for subagents started after the mod loads. Older ones still get a card, marked "model unknown".
 - Statuses are checked every 2 seconds and whenever a subagent finishes a turn.
 
+## Crew agents (second plugin)
+
+This marketplace also ships `crew`, a set of subagents that work in any repository, in a terminal, the desktop app or a cloud session:
+
+| Agent | Model | Does |
+| --- | --- | --- |
+| `crew:search` | Haiku | Maps a repo: where things are and how they connect. Read-only. |
+| `crew:grep` | Haiku | Finds every definition, call site and string reference of a symbol. Read-only. |
+| `crew:tests` | Haiku | Runs tests the way the repo documents them, and reports real failures apart from known environment-only ones. |
+| `crew:reviewer` | Opus | Review gate: reads the real diff with git and replies `APPROVE` or `REJECT`. |
+
+The agents hold no repo-specific commands. They read the target repo's `CLAUDE.md` (and the files it points to) for its layout, test commands and, in a cloud session (`CLAUDE_CODE_REMOTE=true`), its "Claude Code cloud sessions" section: setup such as `PATH` exports, steps to replace, and tests that fail only because of the environment. To teach them a new repo, document those in its `CLAUDE.md`.
+
+`crew:reviewer` may run Bash only for single read-only git commands (`diff`, `log`, `show`, `status`, `rev-parse`, `merge-base`, `ls-files`, `blame`). The plugin's `PreToolUse` hook enforces this and blocks options that run programs or write files (`-c`, `--output`, `--ext-diff`, `--textconv`, `--git-dir`, ...). The hook needs `node` on `PATH`. Without it, the reviewer's limit is not enforced. Other agents and the main conversation are not affected. Tests: `node --test plugins/crew/hooks/reviewer-bash.test.mjs`.
+
+Install it at user scope so every session gets it:
+
+```
+/plugin install crew@crab-crew
+```
+
 ## License
 
 MIT

@@ -1,5 +1,12 @@
 {
   "name": "crab-crew",
   "owner": { "name": "jacquat-jonathan" },
-  "plugins": [{ "name": "crab-crew", "source": "./" }]
+  "plugins": [
+    { "name": "crab-crew", "source": "./" },
+    {
+      "name": "crew",
+      "source": "./plugins/crew",
+      "description": "Repo-agnostic subagents: search, grep, tests and a review gate that reads the real diff."
+    }
+  ]
 }
