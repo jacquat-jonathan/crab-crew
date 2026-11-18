@@ -182,9 +182,12 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'crabs' }, async $ => {
-    await $.ui.open({ id: PANE, title: TITLE })
+    const opened = await $.ui.open({ id: PANE, title: TITLE })
+    if (opened.isPlaced) return { text: 'Crab Crew pane opened.' }
 
-    return { text: 'Crab Crew pane opened.' }
+    // Say why instead of claiming success: e.g. a cloud session viewed from the desktop app
+    // attaches no surface that draws a plugin's panes.
+    return { text: `Crab Crew pane can't be shown here: ${opened.reason}` }
   })
 
   on('agent.spawn', async ($, e, next) => {

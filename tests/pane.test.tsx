@@ -63,3 +63,20 @@ test('a card shows the model, and opens the conversation in the pane when the ma
     await ui.unmount()
   }
 })
+
+test('/crabs says why when no surface can draw the pane', async ($, on) => {
+  // The first open (session.start) and the second (/crabs) find no surface; the third is drawn.
+  const answers = [false, false, true]
+  on('command.register', () => ({ value: { command: 'crabs' } }))
+  on('agent.list', () => ({ value: [] }))
+  on('clock.now', () => ({ value: 1000 }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('ui.open', () => ({
+    value: answers.shift() ? { isPlaced: true } : { isPlaced: false, reason: 'no-surface: no surface is attached' },
+  }))
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+
+  const result = await $.command.run({ command: 'crabs', args: '' })
+  expect(result.text).toBe("Crab Crew pane can't be shown here: no-surface: no surface is attached")
+  expect((await $.command.run({ command: 'crabs', args: '' })).text).toBe('Crab Crew pane opened.')
+})

@@ -34,6 +34,7 @@ In the Claude desktop app: click **+** next to the prompt box, then **Plugins** 
 
 - The model is only recorded for subagents started after the mod loads. Older ones still get a card, marked "model unknown".
 - Statuses are checked every 2 seconds and whenever a subagent finishes a turn.
+- The pane needs a surface that draws plugin panes. A cloud session viewed from the desktop app attaches none, so there the pane can't be shown and `/crabs` says so. The crew agents still work.
 
 ## Crew agents (second plugin)
 
