@@ -1,5 +1,14 @@
 # 🦀 Crab Crew
 
+A Claude Code plugin marketplace with two plugins:
+
+| Plugin | What it is |
+|---|---|
+| [`crab-crew`](plugins/crab-crew) | A pane showing each subagent as a pixel-crab card |
+| [`crab-agents`](plugins/crab-agents) | An agent team: `search`, `grep`, `tests` and a `reviewer` gate |
+
+## crab-crew
+
 A Claude Code mod that adds a **Crab Crew** pane on the right side of the screen, with one card for every subagent in your session.
 
 Each card shows:
@@ -17,18 +26,55 @@ Click **▸ open conversation** on a card to see that subagent's session. In the
 At the prompt of a Claude Code terminal session:
 
 ```
-/plugin install crab-crew --marketplace jacquat-jonathan/crab-crew
+/plugin marketplace add jacquat-jonathan/crab-crew
+/plugin install crab-crew@crab-crew
 ```
 
-Answer `y` to add the marketplace, then press Enter to pick the scope (user scope installs it for every session).
+When asked, pick the scope (user scope installs it for every session).
 
 From a shell:
 
 ```bash
-claude plugin install crab-crew --marketplace jacquat-jonathan/crab-crew
+claude plugin marketplace add jacquat-jonathan/crab-crew
+claude plugin install crab-crew@crab-crew
 ```
 
 In the Claude desktop app: click **+** next to the prompt box, then **Plugins** → **Add marketplace** with `jacquat-jonathan/crab-crew`, then **Add plugin**.
+
+## crab-agents
+
+Four subagents, available as `crab-agents:<name>`:
+
+| Agent | Model | Job |
+|---|---|---|
+| `search` | Haiku | Maps a repository: where things are and how they connect. Read-only. |
+| `grep` | Haiku | Finds every definition, call site and string reference of a symbol. Read-only. |
+| `tests` | Haiku | Runs the tests the way the repo documents (including its cloud-session notes) and reports. Fixes nothing. |
+| `reviewer` | Opus | Gate review of a plan or the real diff. Replies `APPROVE` or `REJECT`. |
+
+The plugin ships a `PreToolUse` hook that limits the `reviewer` agent's Bash to single read-only git commands (`diff`, `log`, `show`, `status`, `rev-parse`, `merge-base`, `ls-files`, `blame`). It needs `node` on the machine and leaves every other agent alone.
+
+```bash
+claude plugin install crab-agents@crab-crew
+```
+
+## Using the plugins in cloud sessions
+
+Cloud sessions don't see your local `~/.claude`. To get the plugins there, commit this to `.claude/settings.json` in each repository you open in the cloud:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "crab-crew": {
+      "source": { "source": "github", "repo": "jacquat-jonathan/crab-crew" }
+    }
+  },
+  "enabledPlugins": {
+    "crab-agents@crab-crew": true,
+    "crab-crew@crab-crew": true
+  }
+}
+```
 
 ## Notes
 
